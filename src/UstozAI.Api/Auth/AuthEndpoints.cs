@@ -83,7 +83,10 @@ public static class AuthEndpoints
 
             if (!rt.IsActive)
             {
-                // A revoked token was re-used → possible theft: revoke every token of this user.
+                // Reused within 30 s of its own rotation = two tabs/requests refreshing at once (benign): just 401.
+                if (rt.ReplacedByHash is not null && rt.RevokedAt > DateTimeOffset.UtcNow.AddSeconds(-30))
+                    return Results.Unauthorized();
+                // A revoked token was re-used later → possible theft: revoke every token of this user.
                 if (rt.RevokedAt is not null)
                     await db.RefreshTokens.Where(t => t.UserId == rt.UserId && t.RevokedAt == null)
                         .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, DateTimeOffset.UtcNow));

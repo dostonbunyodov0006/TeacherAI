@@ -33,10 +33,23 @@ export async function register(name, username, password) {
   return accept(await r.json());
 }
 
-export async function refresh() {
-  const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'same-origin' });
-  if (!r.ok) { accessToken = null; return null; }
-  return accept(await r.json());
+/**
+ * Rotate the refresh cookie → new access token. Only ONE refresh runs at a time — in this tab (shared promise) and
+ * across tabs (Web Locks). Two refreshes with the same cookie used to look like token theft to the server, which
+ * then revoked every session and logged the student out.
+ */
+let refreshing = null;
+export function refresh() {
+  refreshing ??= (async () => {
+    const run = async () => {
+      const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'same-origin' });
+      if (!r.ok) { accessToken = null; return null; }
+      return accept(await r.json());
+    };
+    try { return navigator.locks ? await navigator.locks.request('ustoz-auth-refresh', run) : await run(); }
+    finally { refreshing = null; }
+  })();
+  return refreshing;
 }
 
 export async function logout() {
@@ -50,12 +63,21 @@ export async function token() {
   return accessToken;
 }
 
+/**
+ * fetch with the access token. On 401 (token expired / rotated meanwhile): refresh ONCE and retry. If that still
+ * fails the session is really over → 'ustoz:auth-lost' (the app shows the login page instead of a cryptic error).
+ */
+export async function authFetch(path, init = {}) {
+  const send = (t) => fetch(path, { ...init, headers: { 'X-Time-Zone': timeZone(), ...(init.headers || {}), Authorization: `Bearer ${t}` } });
+  let r = await send(await token());
+  if (r.status !== 401) return r;
+  if (await refresh()) r = await send(accessToken);
+  if (r.status === 401) window.dispatchEvent(new CustomEvent('ustoz:auth-lost'));
+  return r;
+}
+
 export async function api(path, opts = {}) {
-  const t = await token();
-  const r = await fetch(path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', 'X-Time-Zone': timeZone(), ...(opts.headers || {}), Authorization: `Bearer ${t}` },
-  });
+  const r = await authFetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
   if (r.status === 401) throw new Error('unauthorized');
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.status === 204 ? null : r.json();

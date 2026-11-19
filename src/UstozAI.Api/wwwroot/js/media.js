@@ -62,10 +62,7 @@ export class Attachments {
         form.append('file', blob, 'image');
         const sid = this.#getSessionId();
         if (sid) form.append('sessionId', sid);
-        const r = await fetch('/api/media', {
-          method: 'POST', body: form,
-          headers: { Authorization: `Bearer ${await auth.token()}` },
-        });
+        const r = await auth.authFetch('/api/media', { method: 'POST', body: form });
         if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
         const ref = await r.json();
         Object.assign(item, { id: ref.id, url: ref.url, status: 'ready' });

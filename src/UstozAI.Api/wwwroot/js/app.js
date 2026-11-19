@@ -61,7 +61,18 @@ async function boot() {
   const user = await auth.refresh().catch(() => null);
   if (user) return enterApp(user);
   $('login-view').hidden = false;
+  try {
+    if (sessionStorage.getItem('ustoz.authLost')) {
+      sessionStorage.removeItem('ustoz.authLost');
+      $('login-error').textContent = 'Sessiya muddati tugadi — iltimos, qayta kiring.';
+    }
+  } catch { /* private mode */ }
 }
+// The session is really over (refresh token expired or revoked): back to the login page, with a clear message.
+window.addEventListener('ustoz:auth-lost', () => {
+  try { sessionStorage.setItem('ustoz.authLost', '1'); } catch { /* ignore */ }
+  location.reload();
+});
 
 $('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
