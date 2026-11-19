@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using UstozAI.Api.Auth;
 using UstozAI.Api.Data;
+using UstozAI.Api.Services.Conversations;
 using UstozAI.Api.Services.Media;
 
 namespace UstozAI.Api.Endpoints;
@@ -11,9 +12,12 @@ public static class MediaEndpoints
     {
         // Upload: multipart/form-data, field "file". The browser already downsized + re-encoded (EXIF stripped).
         app.MapPost("/api/media", async (HttpContext http, [FromForm] IFormFile file, [FromForm] Guid? sessionId,
-                                         MediaStore store, CancellationToken ct) =>
+                                         MediaStore store, ConversationService conversations, CancellationToken ct) =>
             {
                 if (file.Length is 0 or > 5 * 1024 * 1024) return Results.BadRequest("Rasm 0–5 MB bo'lishi kerak.");
+                // The chat must belong to the uploader. 404 (not 403): don't even confirm that someone else's chat exists.
+                if (sessionId is { } sid && await conversations.FindOwnedAsync(http.User.UserId(), sid, ct) is null)
+                    return Results.NotFound();
                 using var ms = new MemoryStream();
                 await file.CopyToAsync(ms, ct);
                 try
