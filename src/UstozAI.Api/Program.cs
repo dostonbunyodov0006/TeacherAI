@@ -133,8 +133,16 @@ else
 // ---------- "Miyalar zanjiri": Claude → Gemini (free) → Groq (free) → offline lines ----------
 // Keys live outside the repo: `dotnet user-secrets set "Llm:Gemini:ApiKey" "…"` (or environment variables).
 var anthropicKey = cfg["ANTHROPIC_API_KEY"] ?? cfg["Anthropic:ApiKey"];
-var compat = new[] { "Gemini", "Groq" }
-    .Select(n => { var o = cfg.GetSection($"Llm:{n}").Get<OpenAiCompatOptions>() ?? new(); o.Name = n; return o; })
+// Gemini2 = a second Gemini model on the same key: free quotas are per model, so it doubles the free capacity.
+// order = speed: Gemini 3.1 flash-lite (no thinking, ~2 s) → Groq (~1.6 s, raced in after HedgeAfterMs) → Gemini2 backup
+var compat = new[] { "Gemini", "Groq", "Gemini2" }
+    .Select(n =>
+    {
+        var o = cfg.GetSection($"Llm:{n}").Get<OpenAiCompatOptions>() ?? new();
+        o.Name = n;
+        if (n == "Gemini2" && string.IsNullOrWhiteSpace(o.ApiKey)) o.ApiKey = cfg["Llm:Gemini:ApiKey"] ?? "";
+        return o;
+    })
     .Where(o => o.Enabled).ToList();
 builder.Services.AddHttpClient("llm", c => c.Timeout = TimeSpan.FromSeconds(90));
 if (!string.IsNullOrWhiteSpace(anthropicKey))
@@ -147,11 +155,11 @@ builder.Services.AddSingleton(sp =>
 {
     var links = new List<LlmLink>();
     if (!string.IsNullOrWhiteSpace(anthropicKey)) links.Add(new("Claude", sp.GetRequiredService<ClaudeLlmService>()));
-    var turns = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LlmOptions>>().Value.HistoryTurns;
     foreach (var o in compat)
-        links.Add(new(o.Name, new OpenAiCompatibleLlmService(o, sp.GetRequiredService<IHttpClientFactory>(), turns), o.TrainsOnFreeTier));
+        links.Add(new(o.Name, new OpenAiCompatibleLlmService(o, sp.GetRequiredService<IHttpClientFactory>()), o.TrainsOnFreeTier));
     links.Add(new("Offline", sp.GetRequiredService<OfflineLlmService>(), IsFallback: true));
-    return new ChainLlmService(links, sp.GetRequiredService<ILogger<ChainLlmService>>());
+    return new ChainLlmService(links, sp.GetRequiredService<ILogger<ChainLlmService>>())
+        { HedgeAfter = TimeSpan.FromMilliseconds(cfg.GetValue("Llm:HedgeAfterMs", 1500)) };
 });
 builder.Services.AddSingleton<ILlmService>(sp => sp.GetRequiredService<ChainLlmService>());
 

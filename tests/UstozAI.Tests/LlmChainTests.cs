@@ -10,13 +10,19 @@ namespace UstozAI.Tests;
 /// <summary>"Miyalar zanjiri" — a failing brain is skipped (and rests), the student always gets an answer.</summary>
 public class LlmChainTests
 {
-    private sealed class Fake(string name, Exception? fail = null) : ILlmService
+    private sealed class Fake(string name, Exception? fail = null, int delayMs = 0) : ILlmService
     {
         public int Calls;
+        public bool Cancelled;
         public async IAsyncEnumerable<string> StreamReplyAsync(IReadOnlyList<ChatTurn> h, LlmContext c, [EnumeratorCancellation] CancellationToken ct)
         {
             Calls++;
             await Task.Yield();
+            if (delayMs > 0)
+            {
+                try { await Task.Delay(delayMs, ct); }
+                catch (OperationCanceledException) { Cancelled = true; throw; }
+            }
             if (fail is not null) throw fail;
             yield return $"{{\"from\":\"{name}\"";
             yield return "}";
@@ -83,7 +89,32 @@ public class LlmChainTests
         Assert.Equal("Gemini+Groq", chain.Describe());
     }
 
+    [Fact]
+    public async Task Slow_brain_is_raced_and_the_faster_one_speaks()
+    {
+        var slow = new Fake("Gemini", delayMs: 4000);
+        var fast = new Fake("Groq");
+        var chain = new ChainLlmService([new("Gemini", slow), new("Groq", fast)], NullLogger<ChainLlmService>.Instance)
+            { HedgeAfter = TimeSpan.FromMilliseconds(150) };
+        var t0 = DateTime.UtcNow;
+        Assert.Contains("Groq", await Run(chain, Adult));
+        Assert.True(DateTime.UtcNow - t0 < TimeSpan.FromSeconds(2));     // didn't wait for the slow one
+        await Task.Delay(100);
+        Assert.True(slow.Cancelled);                                      // the loser was cancelled
+        Assert.False(chain.IsResting("Gemini"));                          // losing a race is not a failure
+    }
+
+    [Fact]
+    public async Task Fast_first_brain_never_starts_the_second()
+    {
+        var gemini = new Fake("Gemini"); var groq = new Fake("Groq");
+        var chain = new ChainLlmService([new("Gemini", gemini), new("Groq", groq)], NullLogger<ChainLlmService>.Instance);
+        Assert.Contains("Gemini", await Run(chain, Adult));
+        Assert.Equal(0, groq.Calls);                                      // no free quota wasted
+    }
+
     [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests, "Rate limit reached on tokens per minute (TPM). Upgrade to Dev Tier: console.groq.com/settings/billing", 60)]
     [InlineData(HttpStatusCode.TooManyRequests, "", 60)]
     [InlineData(HttpStatusCode.TooManyRequests, "Quota exceeded: requests per day", 1800)]
     [InlineData(HttpStatusCode.Unauthorized, "", 21600)]

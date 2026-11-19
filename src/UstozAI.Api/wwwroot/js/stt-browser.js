@@ -48,7 +48,8 @@ export class BrowserStt {
     const rec = this.#rec;
     if (!rec) return '';
     try { rec.stop(); } catch { /* not started */ }
-    await Promise.race([this.#ended, new Promise((r) => setTimeout(r, 1500))]);
+    // the recognizer usually ends within ~300 ms of stop(); don't make the student wait longer than 700 ms
+    await Promise.race([this.#ended, new Promise((r) => setTimeout(r, 700))]);
     this.#rec = null;
     return (this.#final + (this.#final ? '' : this.#interim)).trim();
   }

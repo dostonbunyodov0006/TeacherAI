@@ -220,13 +220,29 @@ public class StreamingReplyParser
     /// <summary>Full parse at end of stream (actions live after the segments).</summary>
     public MentorReply? Finish()
     {
-        try { return JsonSerializer.Deserialize<MentorReply>(_buf.ToString(), MentorJson.Options); }
+        var text = _buf.ToString();
+        int a = text.IndexOf('{'), b = text.LastIndexOf('}');            // tolerate ```json … ``` around the object
+        if (a < 0 || b <= a) return null;
+        try
+        {
+            var r = JsonSerializer.Deserialize<MentorReply>(text.AsSpan(a, b - a + 1), MentorJson.Options);
+            // Smaller models may leave out empty fields — never let a missing list crash the turn.
+            return r is null ? null : r with
+            {
+                Emotion = string.IsNullOrWhiteSpace(r.Emotion) ? "neutral" : r.Emotion,
+                EyeAndFaceCues = r.EyeAndFaceCues ?? [], SpeechSegments = r.SpeechSegments ?? [],
+                HomeworkUpdates = r.HomeworkUpdates ?? [], AssignHomework = r.AssignHomework ?? [],
+                ProgressUpdates = r.ProgressUpdates ?? [], TestResults = r.TestResults ?? [],
+            };
+        }
         catch (JsonException) { return null; }
     }
 
     private static MentorHeader ParseHeader(string prefix)
     {
         // prefix = '{ "emotion": …, "rageLevel": …, "shyLevel": …, "userMood": …, "eyeAndFaceCues": […], "pivotToTopic": "…",' → close + parse
+        var brace = prefix.IndexOf('{');                    // tolerate a ```json fence before the object
+        if (brace > 0) prefix = prefix[brace..];
         var json = prefix.TrimEnd().TrimEnd(',') + "}";
         try
         {

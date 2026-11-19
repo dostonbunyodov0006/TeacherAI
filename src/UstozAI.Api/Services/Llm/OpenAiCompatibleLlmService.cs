@@ -21,6 +21,10 @@ public class OpenAiCompatOptions
     public bool Vision { get; set; }
     /// <summary>Free tiers may use conversations for training — such a provider goes last for students under 16.</summary>
     public bool TrainsOnFreeTier { get; set; }
+    /// <summary>response_format json_object. Groq can't stream in JSON mode → false there (the prompt enforces JSON).</summary>
+    public bool JsonMode { get; set; } = true;
+    /// <summary>How many recent messages to send (fewer = faster + fits the free per-minute token limits).</summary>
+    public int HistoryTurns { get; set; } = 8;
     public bool Enabled => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(BaseUrl) && !string.IsNullOrWhiteSpace(Model);
 }
 
@@ -38,18 +42,32 @@ public class LlmProviderException(string provider, HttpStatusCode? status, strin
 /// token by token (Server-Sent Events) so the first sentence can be spoken before the answer is complete.
 /// The HttpClient comes from IHttpClientFactory on every call (fresh DNS, pooled sockets).
 /// </summary>
-public class OpenAiCompatibleLlmService(OpenAiCompatOptions o, IHttpClientFactory http, int historyTurns) : ILlmService
+public class OpenAiCompatibleLlmService(OpenAiCompatOptions o, IHttpClientFactory http) : ILlmService
 {
     public string Name => o.Name;
     public bool TrainsOnFreeTier => o.TrainsOnFreeTier;
 
-    /// <summary>json_object mode doesn't carry the schema, so the prompt states the exact shape and key order.</summary>
-    private static readonly string FormatNote =
-        "\n# CHIQISH (QAT'IY)\nJavob — FAQAT bitta JSON obyekt: markdown yo'q, ``` yo'q, izoh yo'q. Kalitlar AYNAN shu tartibda: " +
-        "emotion, rageLevel, shyLevel, userMood, replyLanguage, eyeAndFaceCues, pivotToTopic, bodyAction, speechSegments, " +
-        "safety, imageRequest, boardContent, quiz, quizResult, mistakes, homeworkUpdates, assignHomework, progressUpdates, " +
-        "testResults. speechSegments — qisqa, jonli gaplar (har biri 1–2 gap). JSON sxema:\n" +
-        JsonSerializer.Serialize(MentorJson.Schema());
+    /// <summary>
+    /// A compact contract instead of the full JSON schema (~1 600 tokens saved): the exact shape by example, in the
+    /// order the streaming parser needs (header first, then speechSegments — so the first sentence is spoken early).
+    /// </summary>
+    private const string FormatNote = """
+
+        # CHIQISH (QAT'IY)
+        Javob — FAQAT bitta JSON obyekt (markdown yo'q, ``` yo'q). Kalitlar AYNAN shu tartibda, namunadagidek:
+        {"emotion":"teaching","rageLevel":0,"shyLevel":0,"userMood":"neutral","replyLanguage":"uz-UZ",
+         "eyeAndFaceCues":[{"cue":"head_nod","segment":0,"at":0.3}],"pivotToTopic":"Present Perfect",
+         "bodyAction":{"action":"none","beforeSegment":-1},
+         "speechSegments":[{"type":"speech","emotion":"teaching","text":"1–2 qisqa gap","intensity":1}],
+         "safety":{"category":"none","note":""},
+         "boardContent":{"show":false,"type":"grammar","title":"","markdownBody":"","highlightWords":[]},
+         "mistakes":[]}
+        emotion: neutral|laughing|mocking|shy_flustered|angry_flame|hurt_apologetic|thinking|teaching|annoyed_cutoff.
+        userMood: neutral|amused|hurt|frustrated|stressed. speechSegments type: speech|laugh_sfx|sigh_sfx|gasp_sfx|scoff_sfx|pause.
+        cue: head_nod, head_shake, brow_furrow, eye_roll, smirk, wide_eyes, bashful_look, slow_blink, mouth_smile, curious_inspect.
+        mistakes: aniq xato bo'lsa [{"category":"grammar","userSaid":"…","correctForm":"…","explanation":"…"}], aks holda [].
+        boardContent faqat yangi qoida/jadval bo'lsa show=true.
+        """;
 
     public async IAsyncEnumerable<string> StreamReplyAsync(IReadOnlyList<ChatTurn> history, LlmContext context,
         [EnumeratorCancellation] CancellationToken ct)
@@ -59,11 +77,11 @@ public class OpenAiCompatibleLlmService(OpenAiCompatOptions o, IHttpClientFactor
             new JsonObject
             {
                 ["role"] = "system",
-                ["content"] = MentorPersona.System(context.Language, context.Style) + "\n" + context.MentorBrief +
+                ["content"] = MentorPersona.Compact(context.Language, context.Style) + "\n" + context.MentorBrief +
                               MentorPersona.Continuity(context.SessionDate, context.Today) + FormatNote,
             },
         };
-        foreach (var t in ClaudeLlmService.NormalizeHistory(history, historyTurns))
+        foreach (var t in ClaudeLlmService.NormalizeHistory(history, o.HistoryTurns))
             messages.Add(t.IsUser ? UserMessage(t) : new JsonObject { ["role"] = "assistant", ["content"] = t.Text });
 
         var body = new JsonObject
@@ -72,8 +90,9 @@ public class OpenAiCompatibleLlmService(OpenAiCompatOptions o, IHttpClientFactor
             ["messages"] = messages,
             ["stream"] = true,
             ["max_tokens"] = o.MaxTokens,
-            ["response_format"] = new JsonObject { ["type"] = "json_object" },
         };
+        // Groq can't stream in JSON mode (the whole reply would arrive at once) → off there; the prompt enforces JSON.
+        if (o.JsonMode) body["response_format"] = new JsonObject { ["type"] = "json_object" };
         if (!string.IsNullOrWhiteSpace(o.ReasoningEffort)) body["reasoning_effort"] = o.ReasoningEffort;
 
         using var req = new HttpRequestMessage(HttpMethod.Post, o.BaseUrl.TrimEnd('/') + "/chat/completions")
