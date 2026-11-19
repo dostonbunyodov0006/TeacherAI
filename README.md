@@ -19,6 +19,12 @@ Open http://localhost:5080 and log in as **doston** with the `Seed:Password` you
 Migrations run automatically at startup. `GET /api/health` shows which providers are active.
 
 
+## One-click start (Windows)
+
+Double-click **`Teacher AI.bat`** (or the Desktop shortcut): it starts the server if needed and opens Teacher in
+**Microsoft Edge** as an app window — Edge has the natural Uzbek voice (Sardor). Opened in Chrome on Windows, the page
+offers to hand itself over to Edge on the first click.
+
 ## Free "brain chain" (no Anthropic key needed)
 
 Teacher tries the brains in order and silently moves on when one is rate-limited, out of quota or down:

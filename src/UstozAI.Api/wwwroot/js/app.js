@@ -56,6 +56,22 @@ function setState(s) {
   $('presence').textContent = PRESENCE[s] ?? '';
 }
 
+// ---------------- Edge for the Uzbek voice ----------------
+// Chrome on Windows has no Uzbek voice (it reads Uzbek with a Russian one); Edge has the natural "Sardor".
+// On the first click we hand the page over to Edge via the microsoft-edge: link. Chrome itself asks once
+// "Open Microsoft Edge?" — a browser safety rule no site can skip. Declined → we simply stay in Chrome.
+(() => {
+  const ua = navigator.userAgent;
+  const chromeOnWindows = /Windows/.test(ua) && /Chrome\//.test(ua) && !/Edg\/|OPR\/|YaBrowser/.test(ua) && !navigator.brave;
+  let tried = false;
+  try { tried = !!sessionStorage.getItem('ustoz.edgeTried'); } catch { /* private mode */ }
+  if (!chromeOnWindows || tried) return;
+  window.addEventListener('pointerdown', () => {
+    try { sessionStorage.setItem('ustoz.edgeTried', '1'); } catch { /* ignore */ }
+    location.href = `microsoft-edge:${location.href}`;
+  }, { once: true, capture: true });
+})();
+
 // ---------------- Boot ----------------
 async function boot() {
   const user = await auth.refresh().catch(() => null);
