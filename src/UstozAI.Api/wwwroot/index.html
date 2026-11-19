@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Doston Bunyodov Bunyodovich">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%233a5590%27/%3E%3Ctext x=%2732%27 y=%2743%27 font-size=%2734%27 font-family=%27Arial%27 font-weight=%27700%27 text-anchor=%27middle%27 fill=%27white%27%3ET%3C/text%3E%3C/svg%3E">
+  <title>Teacher AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <!-- ===== Login ===== -->
+  <section id="login-view" class="login" hidden>
+    <form id="login-form" class="card" autocomplete="on">
+      <div class="brand"><span class="dot"></span> Teacher AI</div>
+      <p class="muted">Ovozli shaxsiy ustozingiz — o'zbek, rus va ingliz tilida</p>
+      <label>Login <input name="username" autocomplete="username" required value="doston"></label>
+      <label>Parol <input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Kirish</button>
+      <p id="login-error" class="error" role="alert"></p>
+      <p class="switch">Akkauntingiz yo'qmi? <a href="#" id="to-register">Ro'yxatdan o'tish</a></p>
+    </form>
+    <form id="register-form" class="card" autocomplete="on" hidden>
+      <div class="brand"><span class="dot"></span> Teacher AI</div>
+      <p class="muted">Faqat 3 ta narsa — qolganini Teacher birinchi darsda o'zi so'rab oladi 🙂</p>
+      <label>Ismingiz <input name="name" autocomplete="given-name" required minlength="2" maxlength="40" placeholder="Masalan: Doston"></label>
+      <label>Login <input name="username" autocomplete="username" required pattern="[A-Za-z0-9_.]{3,32}" placeholder="lotin harflari, raqam"></label>
+      <label>Parol <input name="password" type="password" autocomplete="new-password" required minlength="6" placeholder="kamida 6 belgi"></label>
+      <button type="submit">Ro'yxatdan o'tish</button>
+      <p id="register-error" class="error" role="alert"></p>
+      <p class="switch">Akkauntingiz bormi? <a href="#" id="to-login">Kirish</a></p>
+    </form>
+  </section>
+
+  <!-- ===== App shell (protected) ===== -->
+  <main id="app-view" class="app" hidden>
+    <div class="drop-hint" aria-hidden="true">Rasmni shu yerga tashlang — Ustoz ko'rib chiqadi</div>
+    <aside id="sidebar" class="sidebar" aria-label="Suhbatlar tarixi">
+      <div class="sidebar-head">
+        <div class="brand"><span class="dot"></span> <span class="label">Teacher AI</span></div>
+        <button id="sidebar-toggle" class="sb-toggle" aria-label="Panelni yopish / ochish" title="Panelni yopish / ochish (Ctrl+B)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/><path class="sb-chev" d="M15.5 10l-2 2 2 2"/></svg>
+        </button>
+      </div>
+      <button id="new-session" class="nav-item"><span class="ni" aria-hidden="true">&#9998;</span> <span class="label">Yangi chat</span></button>
+      <button id="weekly-report" class="nav-item"><span class="ni" aria-hidden="true">&#128202;</span> <span class="label">Haftalik hisobot</span></button>
+      <div class="sb-scroll">
+        <div class="sb-section label">Bloknotlar</div>
+        <button id="new-notebook" class="nav-item"><span class="ni" aria-hidden="true">&#65291;</span> <span class="label">Yangi bloknot</span></button>
+        <ul id="notebook-list" class="nb-list"></ul>
+        <div class="sb-section label">Chatlar</div>
+        <nav id="conversation-list" class="conversations"></nav>
+        <button id="load-more" class="ghost small" hidden>Ko'proq ko'rsatish</button>
+      </div>
+      <div class="sidebar-foot">
+        <select id="lang-select" aria-label="Til">
+          <option value="uz-UZ">O'zbekcha</option>
+          <option value="ru-RU">Русский</option>
+          <option value="en-US">English</option>
+        </select>
+        <div class="row2">
+          <select id="level-select" aria-label="Ingliz tili darajasi">
+            <option value="">Daraja: noma'lum</option>
+            <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+          </select>
+          <select id="style-select" aria-label="Ustoz uslubi">
+            <option value="strict">Qattiqqo'l</option>
+            <option value="savage">Olovli (filtrsiz)</option>
+            <option value="soft">Yumshoq</option>
+          </select>
+        </div>
+        <button id="mic-test" class="nav-item mic-test-btn"><span class="ni" aria-hidden="true">🎙</span> <span class="label">Mikrofon testi</span></button>
+        <button id="logout" class="ghost">Chiqish</button>
+      </div>
+    </aside>
+    <div id="scrim" class="scrim"></div>
+
+    <section class="stage">
+      <div class="stage-bar">
+        <button id="sidebar-open" class="icon" aria-label="Suhbatlar tarixini ochish">&#9776;</button>
+        <div id="day-title" class="day-title"></div>
+        <div id="lang-seg" class="seg" role="radiogroup" aria-label="Gaplashish tili" title="Qaysi tilda gapirasiz? Avto — o'zi aniqlaydi">
+          <button type="button" role="radio" data-lang="auto">Avto</button>
+          <button type="button" role="radio" data-lang="uz-UZ">UZ</button>
+          <button type="button" role="radio" data-lang="ru-RU">RU</button>
+          <button type="button" role="radio" data-lang="en-US">EN</button>
+        </div>
+        <button id="board-toggle" class="icon" aria-label="Doskani ko'rsatish" title="Doska">&#128221;</button>
+        <button id="transcript-toggle" class="icon" aria-label="Yozuvlarni ko'rsatish yoki yashirish" title="Yozuvlar (Ctrl+.)">&#128172;</button>
+      </div>
+      <div class="stage-main">
+        <div class="avatar-col">
+          <div id="call-card" class="call-card">
+            <div class="scene" aria-hidden="true"><svg class="room" viewBox="0 0 680 620" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="rWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3e4b66"/><stop offset="1" stop-color="#2c3650"/></linearGradient>
+    <linearGradient id="rPanel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3249"/><stop offset="1" stop-color="#1e2538"/></linearGradient>
+    <linearGradient id="rSky" x1="0" y1="0" x2="0" y2="1"><stop class="sky1" offset="0" stop-color="#22345e"/><stop class="sky2" offset=".55" stop-color="#6d6f9e"/><stop class="sky3" offset=".85" stop-color="#e3a07a"/><stop class="sky4" offset="1" stop-color="#f2c48d"/></linearGradient>
+    <linearGradient id="rWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5a3822"/><stop offset=".5" stop-color="#8a5a36"/><stop offset="1" stop-color="#4e3020"/></linearGradient>
+    <linearGradient id="rCurtain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7d5a47"/><stop offset=".2" stop-color="#a98466"/><stop offset=".4" stop-color="#7d5a47"/>
+      <stop offset=".6" stop-color="#a98466"/><stop offset=".8" stop-color="#7d5a47"/><stop offset="1" stop-color="#9c7759"/></linearGradient>
+    <linearGradient id="rFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5e412c"/><stop offset="1" stop-color="#2c1d13"/></linearGradient>
+    <pattern id="rPaper" width="40" height="56" patternUnits="userSpaceOnUse">
+      <rect width="40" height="56" fill="none"/>
+      <path d="M20 6 C26 14 26 22 20 28 C14 22 14 14 20 6 Z M20 34 C24 40 24 46 20 50 C16 46 16 40 20 34 Z" fill="#ffffff" opacity=".035"/>
+      <path d="M0 0 V56 M40 0 V56" stroke="#000" stroke-width="1" opacity=".05"/>
+    </pattern>
+    <linearGradient id="rBeam" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe6b8" stop-opacity=".22"/><stop offset="1" stop-color="#ffe6b8" stop-opacity="0"/></linearGradient>
+    <linearGradient id="rAO" x1="0" y1="0" x2="0" y2="1"><stop offset=".72" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+    <radialGradient id="rCorner" cx="50%" cy="45%" r="75%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
+    <radialGradient id="rSconce" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffd59a" stop-opacity=".55"/><stop offset="1" stop-color="#ffd59a" stop-opacity="0"/></radialGradient>
+    <filter id="rSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <linearGradient id="rPlankA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b4a33"/><stop offset="1" stop-color="#3a2618"/></linearGradient>
+    <radialGradient id="rLamp" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".35"/><stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="-300" y="-300" width="1280" height="850" fill="url(#rWall)"/>
+  <rect class="mood" x="-300" y="-300" width="1280" height="1100"/>
+  <rect x="-300" y="-300" width="1280" height="730" fill="url(#rPaper)"/>
+  <rect x="-300" y="-300" width="1280" height="318" fill="#2a3349"/>
+  <rect x="-300" y="14" width="1280" height="8" fill="#56637f"/><rect x="-300" y="22" width="1280" height="4" fill="#1f2638" opacity=".6"/>
+  <ellipse cx="340" cy="140" rx="380" ry="260" fill="url(#rLamp)"/>
+  <!-- wainscot panels + baseboard -->
+  <rect x="-300" y="430" width="1280" height="118" fill="url(#rPanel)"/>
+  <rect x="-300" y="426" width="1280" height="6" fill="#4b5878"/>
+  <g fill="none" stroke="#3a4560" stroke-width="2">
+    <rect x="-20" y="446" width="120" height="84" rx="3"/><rect x="120" y="446" width="120" height="84" rx="3"/>
+    <rect x="260" y="446" width="160" height="84" rx="3"/><rect x="440" y="446" width="120" height="84" rx="3"/><rect x="580" y="446" width="120" height="84" rx="3"/>
+  </g>
+  <rect x="-300" y="540" width="1280" height="10" fill="#1b2232"/>
+  <rect x="-300" y="548" width="1280" height="240" fill="url(#rFloor)"/>
+  <g opacity=".22"><path d="M-60 548 L30 548 L-110 640 L-260 640 Z" fill="#8a6244"/><path d="M120 548 L210 548 L180 640 L40 640 Z" fill="#8a6244"/>
+    <path d="M300 548 L390 548 L440 640 L310 640 Z" fill="#8a6244"/><path d="M480 548 L570 548 L720 640 L580 640 Z" fill="#8a6244"/></g>
+  <g stroke="#1e130b" stroke-width="1" opacity=".5"><path d="M-60 548 L-260 640 M30 548 L-110 640 M120 548 L40 640 M210 548 L180 640 M300 548 L310 640 M390 548 L440 640 M480 548 L580 640 M570 548 L720 640"/>
+    <path d="M-300 572 H980 M-300 602 H980" opacity=".4"/></g>
+  <path d="M40 548 L230 548 L330 640 L60 640 Z" fill="#ffe6b8" opacity=".09"/>
+
+  <rect x="474" y="100" width="196" height="344" fill="#000" opacity=".35" filter="url(#rSoft)"/>
+  <rect x="52" y="82" width="196" height="296" fill="#000" opacity=".25" filter="url(#rSoft)"/>
+  <!-- window: evening sky, city silhouette, wooden frame, curtains -->
+  <g>
+    <rect x="40" y="70" width="190" height="290" rx="4" fill="url(#rSky)"/>
+    <circle cx="180" cy="270" r="16" fill="#ffe2b0" opacity=".85"/>
+    <path d="M40 300 L40 280 L62 280 L62 262 L84 262 L84 290 L100 290 L100 250 L124 250 L124 284 L140 284 L140 270 L160 270 L160 296 L184 296 L184 276 L204 276 L204 292 L230 292 L230 360 L40 360 Z" fill="#1a2238" opacity=".9"/>
+    <g fill="#ffd27a" opacity=".8"><rect x="68" y="288" width="4" height="4"/><rect x="106" y="262" width="4" height="4"/><rect x="114" y="274" width="4" height="4"/><rect x="146" y="282" width="4" height="4"/><rect x="190" y="286" width="4" height="4"/></g>
+    <path d="M60 110 q14 -10 30 0 q12 -6 22 2" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity=".18"/>
+    <rect x="40" y="70" width="190" height="290" rx="4" fill="none" stroke="#e9e1d2" stroke-width="10"/>
+    <path d="M135 70 V360 M40 205 H230" stroke="#e9e1d2" stroke-width="7"/>
+    <rect x="28" y="356" width="214" height="12" rx="3" fill="#ddd3c1"/>
+    <path d="M18 52 L72 52 C66 140 74 240 60 380 L10 380 C18 260 12 140 18 52 Z" fill="url(#rCurtain)"/>
+    <path d="M252 52 L198 52 C204 140 196 240 210 380 L260 380 C252 260 258 140 252 52 Z" fill="url(#rCurtain)"/>
+    <g stroke="#3d2a1f" stroke-width="2" opacity=".35"><path d="M30 60 C28 160 32 260 24 376"/><path d="M48 60 C46 160 52 260 44 376"/>
+      <path d="M232 60 C234 160 228 260 236 376"/><path d="M214 60 C216 160 210 260 218 376"/></g>
+    <path d="M60 80 L100 80 L60 200 Z M150 80 L170 80 L140 200 L130 200 Z" fill="#fff" opacity=".07"/>
+    <rect x="6" y="44" width="258" height="10" rx="5" fill="#8a6a3a"/>
+    <circle cx="8" cy="49" r="7" fill="#a5844a"/><circle cx="262" cy="49" r="7" fill="#a5844a"/>
+  </g>
+
+  <ellipse cx="430" cy="110" rx="70" ry="60" fill="url(#rSconce)"/>
+  <g transform="translate(430 110)"><rect x="-3" y="0" width="6" height="16" fill="#8a6a3a"/><path d="M-12 -14 L12 -14 L8 2 L-8 2 Z" fill="#f3dfb4" opacity=".95"/></g>
+  <!-- framed certificate above-left of the head -->
+  <g transform="translate(258 96)">
+    <rect width="58" height="44" rx="2" fill="#7a5a32"/><rect x="5" y="5" width="48" height="34" fill="#f3ead6"/>
+    <path d="M12 14 H46 M12 20 H40 M12 26 H44" stroke="#9a8a6a" stroke-width="2"/><circle cx="42" cy="32" r="4" fill="#c0392b"/>
+  </g>
+
+  <!-- bookshelf with books, a globe and a small plant -->
+  <g>
+    <rect x="462" y="86" width="196" height="344" rx="4" fill="#4e3020"/>
+    <rect x="470" y="94" width="180" height="328" fill="#2c1b11"/>
+    <g fill="url(#rWood)"><rect x="466" y="176" width="188" height="9"/><rect x="466" y="262" width="188" height="9"/><rect x="466" y="348" width="188" height="9"/></g>
+    <!-- shelf 1 -->
+    <g>
+      <rect x="476" y="122" width="13" height="54" fill="#8e2d2d"/><rect x="490" y="128" width="11" height="48" fill="#2d5a8e"/>
+      <rect x="502" y="118" width="15" height="58" fill="#3d6b4c"/><rect x="518" y="130" width="10" height="46" fill="#c49a3a"/>
+      <rect x="529" y="124" width="14" height="52" fill="#5a3b6b"/><path d="M546 176 L552 126 L564 128 L558 176 Z" fill="#a05a3a"/>
+      <circle cx="616" cy="148" r="20" fill="#3f78a8"/><path d="M600 140 q10 -6 16 4 q8 6 18 -2 M598 154 q12 4 22 -2" fill="none" stroke="#6fbf73" stroke-width="5"/>
+      <path d="M616 168 v8 M604 176 h24" stroke="#c49a3a" stroke-width="3"/>
+    </g>
+    <!-- shelf 2 -->
+    <g>
+      <rect x="476" y="210" width="12" height="52" fill="#2d4a6b"/><rect x="489" y="204" width="14" height="58" fill="#b5873a"/>
+      <rect x="504" y="214" width="11" height="48" fill="#7a2f45"/><rect x="516" y="208" width="13" height="54" fill="#3b6b5a"/>
+      <rect x="530" y="216" width="10" height="46" fill="#d8cfb8"/><rect x="541" y="206" width="14" height="56" fill="#4a3b8a"/>
+      <rect x="580" y="246" width="56" height="8" fill="#a05a3a"/><rect x="584" y="238" width="50" height="8" fill="#2d5a8e"/><rect x="580" y="230" width="54" height="8" fill="#c49a3a"/>
+    </g>
+    <!-- shelf 3 -->
+    <g>
+      <rect x="476" y="296" width="14" height="52" fill="#3d6b4c"/><rect x="491" y="300" width="11" height="48" fill="#8e2d2d"/>
+      <rect x="503" y="292" width="13" height="56" fill="#2d4a6b"/><rect x="517" y="302" width="12" height="46" fill="#c49a3a"/>
+      <path d="M604 348 L600 322 L630 322 L626 348 Z" fill="#b5653a"/>
+      <path d="M615 322 C600 300 596 290 606 286 C612 300 615 310 615 322 C618 304 624 292 634 290 C636 302 626 314 615 322" fill="#4f9a5a"/>
+    </g>
+    <g stroke="#e2c27a" stroke-width="1.4" opacity=".7">
+      <path d="M476 130 h13 M476 166 h13 M502 126 h15 M502 168 h15 M529 132 h14 M489 212 h14 M489 252 h14 M541 214 h14 M541 254 h14 M503 300 h13 M503 340 h13"/>
+    </g>
+    <g stroke="#2a1a10" stroke-width=".8" opacity=".5"><path d="M466 120 v300 M654 120 v300"/><path d="M470 98 q60 4 120 0 t60 2"/></g>
+    <!-- bottom: drawers -->
+    <rect x="474" y="362" width="84" height="54" rx="2" fill="#5a3822"/><rect x="562" y="362" width="84" height="54" rx="2" fill="#5a3822"/>
+    <circle cx="516" cy="389" r="3" fill="#d4a93c"/><circle cx="604" cy="389" r="3" fill="#d4a93c"/>
+  </g>
+
+  <!-- sunlight beam from the window -->
+  <path d="M40 120 L230 90 L330 640 L60 640 Z" fill="url(#rBeam)"/>
+  <ellipse cx="80" cy="552" rx="60" ry="8" fill="#000" opacity=".35" filter="url(#rSoft)"/>
+  <!-- floor plant (left) -->
+  <g transform="translate(70 548)">
+    <path d="M-22 0 L-26 -46 L26 -46 L22 0 Z" fill="#9a5a34"/><rect x="-28" y="-52" width="56" height="8" rx="2" fill="#b56b3e"/>
+    <g fill="#3f8a50">
+      <path d="M0 -52 C-6 -100 -34 -120 -48 -122 C-36 -98 -16 -76 0 -52"/><path d="M0 -52 C8 -104 34 -128 50 -128 C40 -100 18 -74 0 -52"/>
+      <path d="M0 -52 C-2 -110 4 -150 12 -168 C18 -140 12 -92 0 -52"/>
+    </g>
+    <g fill="#2f6e3e">
+      <path d="M0 -52 C-20 -80 -46 -86 -60 -82 C-44 -70 -24 -60 0 -52"/><path d="M0 -52 C22 -78 48 -84 62 -78 C46 -66 24 -58 0 -52"/>
+    </g>
+  </g>
+  <rect x="-300" y="300" width="1280" height="250" fill="url(#rAO)"/>
+  <rect x="-300" y="-300" width="1280" height="1100" fill="url(#rCorner)"/>
+</svg>
+              <i class="dust" style="--d:0"></i><i class="dust" style="--d:1"></i><i class="dust" style="--d:2"></i>
+              <i class="dust" style="--d:3"></i><i class="dust" style="--d:4"></i><i class="dust" style="--d:5"></i>
+              <i class="dust" style="--d:6"></i><i class="dust" style="--d:7"></i></div>
+            <div id="topic-pill" class="topic-pill" hidden>
+              <span aria-hidden="true">📌</span> <span class="topic-text"></span>
+              <span class="topic-flash">Mavzuga qaytamiz →</span>
+            </div>
+            <div class="rec-row"><span id="rec-clock" class="rec-clock" aria-live="off"></span></div>
+            <div id="avatar-wrap" class="avatar-wrap" data-state="idle">
+              <div class="halo"></div>
+              <div id="avatar"></div>
+              <div id="thinking-dots" class="thinking-dots"><i></i><i></i><i></i></div>
+              <div id="quiz" class="quiz" hidden></div>
+            </div>
+            <div class="nameplate"><span class="live-dot" aria-hidden="true"></span><b>Teacher</b><span id="presence">onlayn</span></div>
+            <div id="caption" class="caption" aria-live="polite"></div>
+          </div>
+          <div class="talk-bar">
+            <canvas id="wave" class="wave" width="320" height="48" aria-hidden="true"></canvas>
+            <button id="ptt-button" class="ptt" aria-label="Bosib turing va gapiring" title="Bosib turing va gapiring (yoki Space)">
+              <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+            </button>
+            <div id="status" class="status">Gapirish uchun <kbd>Space</kbd> ni yoki mikrofonni bosib turing</div>
+          </div>
+          <aside id="support-card" class="support-card" role="alert" hidden>
+            <strong>Siz yolg'iz emassiz.</strong>
+            <p>Agar hozir o'zingizga zarar yetkazish fikri bo'lsa, darhol yaqin odamingizga ayting yoki qo'ng'iroq qiling:
+               <b>112</b> (favqulodda) yoki <b>103</b> (tez yordam).</p>
+            <button type="button" class="ghost small" id="support-close">Yopish</button>
+          </aside>
+        </div>
+        <article id="notebook" class="notebook" hidden>
+          <header class="nb-head">
+            <input id="nb-title" class="nb-title" maxlength="200" aria-label="Bloknot nomi">
+            <span id="nb-status" class="nb-status"></span>
+            <button id="nb-delete" class="icon" title="Bloknotni o'chirish" aria-label="Bloknotni o'chirish">&#128465;</button>
+            <button id="nb-close" class="icon" title="Yopish" aria-label="Bloknotni yopish">&#10005;</button>
+          </header>
+          <textarea id="nb-content" class="nb-content" placeholder="Bu yerga yozing — so'zlar, qoidalar, eslatmalar… Avtomatik saqlanadi."></textarea>
+        </article>
+        <article id="board" class="board" hidden aria-live="polite">
+          <header class="board-head">
+            <span class="board-badge"></span>
+            <h3 class="board-title"></h3>
+            <button class="board-close icon" aria-label="Doskani yopish">&#10005;</button>
+          </header>
+          <div class="board-body"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="transcript" class="chat" aria-label="Suhbat yozuvlari">
+      <header class="chat-head">
+        <div>
+          <div id="chat-date" class="chat-date"></div>
+        </div>
+        <span id="resume-badge" class="badge" hidden>Davom ettirilmoqda</span>
+      </header>
+      <div class="mentor-strip">
+        <span id="level-chip" class="chip" title="Haqiqiy daraja (bazadan)">Daraja: —</span>
+        <span id="mood-chip" class="chip" title="Ustoz sizning kayfiyatingizni shunday tushundi" hidden></span>
+        <div id="anger-meter" class="anger" data-level="low" title="Ustozning jahli">
+          <span class="anger-icon">&#128545;</span><span class="bar"><i></i></span><span id="anger-label">0/10</span>
+        </div>
+        <button id="hw-toggle" class="chip button" aria-expanded="false">Vazifalar <b id="hw-count">0</b></button>
+      </div>
+      <ul id="hw-list" class="hw-list" hidden></ul>
+      <div id="messages" class="messages"></div>
+      <div id="att-tray" class="att-tray" hidden aria-label="Biriktirilgan rasmlar"></div>
+      <div id="gender-chips" class="gender-chips" hidden>
+          <span>Teacher so'rayapti:</span>
+          <button type="button" data-g="male">👦 O'g'il bola</button>
+          <button type="button" data-g="female">👧 Qiz bola</button>
+          <button type="button" data-g="skip" class="ghost">Keyinroq</button>
+        </div>
+      <form id="text-form" class="composer">
+        <button id="attach-btn" type="button" class="icon" aria-label="Rasm biriktirish" title="Rasm biriktirish (yoki Ctrl+V / sudrab tashlang)"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></button>
+        <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+        <input id="text-input" placeholder="Yozing… / Напишите… / Type…" autocomplete="off" maxlength="4000">
+        <button type="submit">Yuborish</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
