@@ -5,7 +5,7 @@ obj/
 appsettings.*.local.json
 App_Data/
 
-# secrets / local-only settings (never commit — copy appsettings.Development.example.json instead)
+# secrets / local-only settings (never commit вЂ” copy appsettings.Development.example.json instead)
 src/UstozAI.Api/appsettings.Development.json
 appsettings.Production.json
 *.env
@@ -15,12 +15,12 @@ node_modules/
 TestResults/
 *.log
 
-# personal photo for the creator card — stays on this computer only
+# personal photo for the creator card вЂ” stays on this computer only
 src/UstozAI.Api/wwwroot/img/creator.jpg
 
 # local browser test scripts (contain the local DB password)
 tools/e2e/
 
-# all passwords/keys + database backups — this computer only
+# all passwords/keys + database backups вЂ” this computer only
 PAROLLAR.md
 backup/

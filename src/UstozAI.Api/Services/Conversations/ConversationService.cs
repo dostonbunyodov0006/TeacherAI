@@ -39,7 +39,7 @@ public class ConversationService(AppDbContext db, UstozAI.Api.Services.Media.Med
         if (pref is null) { pref = new UserPreference { UserId = userId }; db.Preferences.Add(pref); }
         var valid = !string.IsNullOrWhiteSpace(iana) && iana.Length <= 64
                     && (iana is "UTC" or "Etc/UTC" || ResolveZone(iana) != TimeZoneInfo.Utc);
-        if (valid && iana != pref.TimeZone)
+        if (valid && iana is not null && iana != pref.TimeZone)
         {
             pref.TimeZone = iana;
             await db.SaveChangesAsync(ct);
