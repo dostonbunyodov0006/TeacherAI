@@ -17,3 +17,6 @@ TestResults/
 
 # personal photo for the creator card — stays on this computer only
 src/UstozAI.Api/wwwroot/img/creator.jpg
+
+# local browser test scripts (contain the local DB password)
+tools/e2e/
