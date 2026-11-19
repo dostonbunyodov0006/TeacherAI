@@ -20,3 +20,7 @@ src/UstozAI.Api/wwwroot/img/creator.jpg
 
 # local browser test scripts (contain the local DB password)
 tools/e2e/
+
+# all passwords/keys + database backups — this computer only
+PAROLLAR.md
+backup/
