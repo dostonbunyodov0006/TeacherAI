@@ -236,6 +236,8 @@ public static partial class Onboarding
     /// <summary>"## O'QUVCHI" section for the LLM brief: who Teacher is talking to + how to address them.</summary>
     public static string RenderStudent(string name, string? gender, int? age, string? city)
     {
+        name = Mentor.PromptData.LooksLikeInstruction(name) ? "o'quvchi" : System.Text.RegularExpressions.Regex.Replace(name, @"[^\p{L}\s'\-]", "").Trim();
+        if (name.Length == 0) name = "o'quvchi";
         var g = gender switch { "male" => "o'g'il bola / yigit", "female" => "qiz bola / ayol", _ => "noma'lum" };
         var addr = (gender, age) switch
         {
@@ -254,7 +256,7 @@ public static partial class Onboarding
         var kid = age is < 16
             ? $"\nO'quvchi {age} yoshda — BOLA. Hech qanday so'kinish, haqorat, qo'pol so'z YO'Q (uslub qanday bo'lmasin). Sodda so'zlar, qisqa gaplar, ko'p rag'bat."
             : "";
-        return $"\n## O'QUVCHI\nIsmi: {name}. Jinsi: {g}. Yoshi: {(age is null ? "noma'lum" : age)}. Shahri: {city ?? "noma'lum"}.\n" +
+        return $"\n## O'QUVCHI\nIsmi: {Mentor.PromptData.Q(name, 40)}. Jinsi: {g}. Yoshi: {(age is null ? "noma'lum" : age)}. Shahri: {Mentor.PromptData.Q(city, 60)}.\n" +
                $"Murojaat: {addr}. {ru}{kid}\nMisollarni o'quvchining hayotiga yaqin qil (shahri, yoshi). Talabchanlik jinsga qarab O'ZGARMAYDI.\n";
     }
 

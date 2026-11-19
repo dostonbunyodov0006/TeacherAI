@@ -166,7 +166,7 @@ public class ConversationPipeline(
         if (opt.Posture is "sit" or "lie")
             brief.Append($"\n## TANA HOLATI\nHozir sen {(opt.Posture == "sit" ? "o'tiribsan" : "yotibsan")}. Turishni so'rasa — stand.\n");
         if (!string.IsNullOrWhiteSpace(session.ActiveTopic))
-            brief.Append($"\n## FAOL MAVZU\n\"{session.ActiveTopic}\" — chalg'ishdan keyin shunga qaytar (pivotToTopic).\n");
+            brief.Append($"\n## FAOL MAVZU\n{PromptData.Q(session.ActiveTopic, 80)} — chalg'ishdan keyin shunga qaytar (pivotToTopic).\n");
         if (opt.Kind == "weekly_report")
         {
             var report = await sp.GetRequiredService<WeeklyReportService>().BuildAsync(userId, timeZone, ct);
@@ -474,7 +474,7 @@ public class ConversationPipeline(
     {
         var weak = words?.Where(w => w.Accuracy < 70).OrderBy(w => w.Accuracy).Take(5).ToList();
         if (weak is not { Count: > 0 }) return "";
-        var list = string.Join(", ", weak.Select(w => $"\"{w.Word}\" ({w.Accuracy.ToString("0", CultureInfo.InvariantCulture)}/100)"));
+        var list = string.Join(", ", weak.Select(w => $"{PromptData.Q(w.Word, 40)} ({w.Accuracy.ToString("0", CultureInfo.InvariantCulture)}/100)"));
         return $"\n## TALAFFUZ (Azure baholashi, 70 dan past)\n{list}\n";
     }
 

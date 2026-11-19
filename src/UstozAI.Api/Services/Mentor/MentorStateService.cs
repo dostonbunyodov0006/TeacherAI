@@ -80,10 +80,10 @@ public class MentorStateService(AppDbContext db, ILogger<MentorStateService> log
         foreach (var p in s.Progress)
         {
             b.Append($"- {p.Subject}: daraja {p.Level ?? "noma'lum"}");
-            if (p.Stage is not null) b.Append($", hozirgi mavzu: {p.Stage}");
+            if (p.Stage is not null) b.Append($", hozirgi mavzu: {PromptData.Q(p.Stage, 80)}");
             if (p.IeltsEstimate is { } ie) b.Append($", real IELTS taxmini: {ie.ToString("0.0", inv)}");
             if (p.TargetIelts is { } t) b.Append($", o'quvchi maqsadi: {t.ToString("0.0", inv)}");
-            if (!string.IsNullOrWhiteSpace(p.Notes)) b.Append($". Izohlaring: {p.Notes}");
+            if (!string.IsNullOrWhiteSpace(p.Notes)) b.Append($". Izohlaring: {PromptData.Q(p.Notes, 600)}");
             b.AppendLine();
             if (LevelGuide(p.Level) is { } g) b.AppendLine($"  → {p.Subject} {p.Level} darajasiga MOSLASH (majburiy): {g}");
         }
@@ -98,14 +98,14 @@ public class MentorStateService(AppDbContext db, ILogger<MentorStateService> log
             ? "Uy vazifalari tarixi: hali yo'q."
             : $"Uy vazifasi bajarish ko'rsatkichi: {s.Completed}/{total} ({100 * s.Completed / total}%), bajarilmagan: {s.Failed}.");
         foreach (var t in s.RecentTests)
-            b.AppendLine($"- Test \"{t.Name}\" ({t.Subject}): {t.Score.ToString("0.#", inv)}/{t.MaxScore.ToString("0.#", inv)}, {t.TakenAt:yyyy-MM-dd}");
+            b.AppendLine($"- Test {PromptData.Q(t.Name, 80)} ({PromptData.Q(t.Subject, 30)}): {t.Score.ToString("0.#", inv)}/{t.MaxScore.ToString("0.#", inv)}, {t.TakenAt:yyyy-MM-dd}");
 
         if (s.Pending.Count == 0) b.AppendLine("Kutilayotgan uy vazifasi yo'q.");
         else
         {
             b.AppendLine("Kutilayotgan uy vazifalari (homeworkId bilan):");
             foreach (var h in s.Pending)
-                b.AppendLine($"- [{h.Id}] \"{h.Title}\" ({h.Subject}), muddat {h.DueDate:yyyy-MM-dd}" +
+                b.AppendLine($"- [{h.Id}] {PromptData.Q(h.Title, 120)} ({PromptData.Q(h.Subject, 30)}), muddat {h.DueDate:yyyy-MM-dd}" +
                              (h.Overdue ? " — MUDDATI O'TGAN" : "") +
                              (h.MissedCheckins > 0 ? $", allaqachon {h.MissedCheckins} marta qilinmagan" : ""));
         }

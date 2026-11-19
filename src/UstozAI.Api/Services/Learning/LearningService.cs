@@ -109,8 +109,8 @@ public partial class LearningService(AppDbContext db)
         if (top.Count == 0) return "";
         var b = new StringBuilder("\n## O'QUVCHINING TAKRORIY XATOLARI (bazadan)\n");
         foreach (var m in top)
-            b.AppendLine($"- [{m.Category}] \"{m.UserSaid}\" → \"{m.CorrectForm}\" — {m.OccurrenceCount} marta" +
-                         (m.Note is null ? "" : $" ({m.Note})"));
+            b.AppendLine($"- [{m.Category}] {PromptData.Q(m.UserSaid)} → {PromptData.Q(m.CorrectForm)} — {m.OccurrenceCount} marta" +
+                         (m.Note is null ? "" : $" ({PromptData.Q(m.Note, 160)})"));
         b.AppendLine("Agar o'quvchi shulardan birini yana qilsa: aniq aytib o't (\"Yana o'sha xato! Buni N marta tushuntirdim!\")," +
                      " N = bazadagi son + 1, va mistakes massiviga AYNAN o'sha correctForm bilan yoz.");
         return b.ToString();
@@ -122,10 +122,10 @@ public partial class LearningService(AppDbContext db)
         var q = ctx.Quiz;
         var secs = ctx.AnswerDelayMs is { } ms ? $"{ms / 1000.0:0.0} s" : "noma'lum";
         return ctx.TimedOut
-            ? $"\n## VIKTORINA NATIJASI\nSavol: \"{q.Question}\" (to'g'ri javob: \"{q.ExpectedAnswer}\", limit {q.TimeLimitSeconds} s).\n" +
+            ? $"\n## VIKTORINA NATIJASI\nSavol: {PromptData.Q(q.Question, 200)} (to'g'ri javob: {PromptData.Q(q.ExpectedAnswer, 120)}, limit {q.TimeLimitSeconds} s).\n" +
               $"O'quvchi VAQTIDA javob bermadi ({secs}). Buni qattiq qayd et, to'g'ri javobni ayt va doskaga yoz. " +
               "quizResult: graded=true, correct=false.\n"
-            : $"\n## VIKTORINA JAVOBI\nSavol: \"{q.Question}\". Kutilgan javob: \"{q.ExpectedAnswer}\". Limit {q.TimeLimitSeconds} s, " +
+            : $"\n## VIKTORINA JAVOBI\nSavol: {PromptData.Q(q.Question, 200)}. Kutilgan javob: {PromptData.Q(q.ExpectedAnswer, 120)}. Limit {q.TimeLimitSeconds} s, " +
               $"o'quvchi {secs} da javob bera boshladi.\nUshbu foydalanuvchi xabari — shu savolga javob. QAT'IY bahola: " +
               "ma'no va grammatika to'g'ri bo'lishi shart, yarim javob = noto'g'ri. quizResult ni to'ldir (graded=true).\n";
     }

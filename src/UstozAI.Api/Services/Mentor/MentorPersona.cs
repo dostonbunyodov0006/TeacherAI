@@ -30,6 +30,7 @@ public static class MentorPersona
         .AppendLine(Images)
         .AppendLine(Body)
         .AppendLine(SafetyPolicy.PromptSection)
+        .AppendLine(PromptData.PromptSection)
         .AppendLine(Teaching)
         .AppendLine(Contract)
         .ToString();

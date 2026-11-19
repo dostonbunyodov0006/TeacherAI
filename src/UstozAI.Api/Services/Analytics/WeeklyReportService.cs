@@ -1,3 +1,4 @@
+using UstozAI.Api.Services.Mentor;
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -107,7 +108,7 @@ public class WeeklyReportService(AppDbContext db)
         b.AppendLine($"Viktorinalar: {r.Quizzes.Total} ta, to'g'ri {r.Quizzes.Correct}, vaqti o'tgan {r.Quizzes.TimedOut}" +
                      (r.Quizzes.AvgAnswerSeconds is { } s ? $", o'rtacha javob {s.ToString("0.0", inv)} s." : "."));
         b.AppendLine($"Yangi xatolar: {r.NewMistakes}. Eng ko'p takrorlanganlar:");
-        foreach (var m in r.TopMistakes) b.AppendLine($"- \"{m.UserSaid}\" → \"{m.CorrectForm}\" ({m.Category}), {m.OccurrenceCount} marta");
+        foreach (var m in r.TopMistakes) b.AppendLine($"- {PromptData.Q(m.UserSaid)} → {PromptData.Q(m.CorrectForm)} ({PromptData.Q(m.Category, 30)}), {m.OccurrenceCount} marta");
         b.AppendLine($"Jahl: o'rtacha {r.AvgAnger.ToString("0.0", inv)}, eng yuqori {r.MaxAnger}. Daraja: {r.Level ?? "noma'lum"}" +
                      (r.IeltsEstimate is { } ie ? $", IELTS taxmini {ie.ToString("0.0", inv)}" : "") +
                      (r.TargetIelts is { } t ? $", maqsad {t.ToString("0.0", inv)}" : "") + ".");
