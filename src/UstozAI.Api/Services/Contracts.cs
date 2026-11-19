@@ -20,7 +20,9 @@ public record ImageInput(string MediaType, string Base64);
 /// <param name="Today">The user's local date now.</param>
 /// <param name="MentorBrief">Per-turn facts: real level, pending homework, current anger (from MentorStateService).</param>
 /// <param name="Style">"soft" | "strict"</param>
-public record LlmContext(string Language, DateOnly SessionDate, DateOnly Today, string MentorBrief = "", string Style = "strict");
+/// <param name="Minor">Student is under 16 → providers that train on free-tier chats go last.</param>
+public record LlmContext(string Language, DateOnly SessionDate, DateOnly Today, string MentorBrief = "", string Style = "strict",
+                         bool Minor = false);
 
 /// <summary>Streams the mentor's reply as raw JSON text deltas (schema: Services/Mentor/MentorReply.cs).</summary>
 public interface ILlmService

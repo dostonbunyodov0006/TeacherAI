@@ -260,7 +260,8 @@ public class ConversationPipeline(
         else
         {
             var history = await WithImagesAsync(db, media, await conversations.HistoryForLlmAsync(session.Id, 40, ct), ct);
-            var llmContext = new LlmContext(session.Language, session.SessionDate, today, brief.ToString(), snapshot.Style);
+            var llmContext = new LlmContext(session.Language, session.SessionDate, today, brief.ToString(), snapshot.Style,
+                Minor: student.Age is < 16);
             replySource = llm.StreamReplyAsync(history, llmContext, ct);
         }
 

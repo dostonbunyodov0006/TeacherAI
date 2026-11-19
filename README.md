@@ -18,6 +18,24 @@ Open http://localhost:5080 and log in as **doston** with the `Seed:Password` you
 (copy `appsettings.Development.example.json` → `appsettings.Development.json` first; that file is git-ignored).
 Migrations run automatically at startup. `GET /api/health` shows which providers are active.
 
+
+## Free "brain chain" (no Anthropic key needed)
+
+Teacher tries the brains in order and silently moves on when one is rate-limited, out of quota or down:
+**Claude → Google Gemini (free) → Groq (free) → offline lines**. Students under 16 get Groq before Gemini
+(Gemini's free tier may use conversations to improve Google's models).
+
+Keys are stored outside the repository with .NET user-secrets:
+
+```
+cd src/UstozAI.Api
+dotnet user-secrets set "Llm:Gemini:ApiKey" "<key from aistudio.google.com>"
+dotnet user-secrets set "Llm:Groq:ApiKey"   "<key from console.groq.com>"
+dotnet user-secrets set "Anthropic:ApiKey"  "<optional: Claude key>"
+```
+
+Models and endpoints are in `appsettings.json` → `Llm:Gemini` / `Llm:Groq`. `GET /api/health` shows the active chain.
+
 ## Architecture
 
 ```

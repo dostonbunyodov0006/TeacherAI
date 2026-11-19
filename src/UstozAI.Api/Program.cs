@@ -130,13 +130,30 @@ else
     builder.Services.AddSingleton<ITextToSpeech, TextVisemeSpeech>();
 }
 
+// ---------- "Miyalar zanjiri": Claude → Gemini (free) → Groq (free) → offline lines ----------
+// Keys live outside the repo: `dotnet user-secrets set "Llm:Gemini:ApiKey" "…"` (or environment variables).
 var anthropicKey = cfg["ANTHROPIC_API_KEY"] ?? cfg["Anthropic:ApiKey"];
+var compat = new[] { "Gemini", "Groq" }
+    .Select(n => { var o = cfg.GetSection($"Llm:{n}").Get<OpenAiCompatOptions>() ?? new(); o.Name = n; return o; })
+    .Where(o => o.Enabled).ToList();
+builder.Services.AddHttpClient("llm", c => c.Timeout = TimeSpan.FromSeconds(90));
 if (!string.IsNullOrWhiteSpace(anthropicKey))
 {
     builder.Services.AddSingleton(new AnthropicClient { ApiKey = anthropicKey });
-    builder.Services.AddSingleton<ILlmService, ClaudeLlmService>();
+    builder.Services.AddSingleton<ClaudeLlmService>();
 }
-else builder.Services.AddSingleton<ILlmService, OfflineLlmService>();
+builder.Services.AddSingleton<OfflineLlmService>();
+builder.Services.AddSingleton(sp =>
+{
+    var links = new List<LlmLink>();
+    if (!string.IsNullOrWhiteSpace(anthropicKey)) links.Add(new("Claude", sp.GetRequiredService<ClaudeLlmService>()));
+    var turns = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LlmOptions>>().Value.HistoryTurns;
+    foreach (var o in compat)
+        links.Add(new(o.Name, new OpenAiCompatibleLlmService(o, sp.GetRequiredService<IHttpClientFactory>(), turns), o.TrainsOnFreeTier));
+    links.Add(new("Offline", sp.GetRequiredService<OfflineLlmService>(), IsFallback: true));
+    return new ChainLlmService(links, sp.GetRequiredService<ILogger<ChainLlmService>>());
+});
+builder.Services.AddSingleton<ILlmService>(sp => sp.GetRequiredService<ChainLlmService>());
 
 // Image editing/generation: OpenAI gpt-image-1 when a key exists, otherwise in-browser canvas variations.
 var imageOpts = cfg.GetSection("OpenAIImages").Get<OpenAiImageOptions>() ?? new();
@@ -184,7 +201,7 @@ app.MapGet("/api/health", () => new
     ok = true,
     stt = azure.Enabled ? "azure" : "none",
     tts = azure.Enabled ? "azure" : "browser",
-    llm = string.IsNullOrWhiteSpace(anthropicKey) ? "offline" : "claude",
+    llm = app.Services.GetRequiredService<ChainLlmService>().Describe().ToLowerInvariant(),
     images = imageOpts.Enabled ? "openai" : "browser-filters",
 });
 
