@@ -64,13 +64,38 @@ public record TurnEvent(string Type)
 /// </summary>
 public class ConversationPipeline(
     IServiceScopeFactory scopes, ISpeechToText stt, ILlmService llm, ITextToSpeech tts,
-    IImageGenerator images, ILogger<ConversationPipeline> log)
+    IImageGenerator images, UserTurnGate gate, ILogger<ConversationPipeline> log)
 {
     private const int HistoryImageTurns = 3;          // older images become a text placeholder (token budget)
     private static readonly TimeSpan ImageJobTimeout = TimeSpan.FromSeconds(120);
     private static readonly HashSet<string> SpeechLanguages = ["uz-UZ", "ru-RU", "en-US"];
 
+    /// <summary>How long a student's second turn (e.g. another tab) may wait for the first one to finish.</summary>
+    private static readonly TimeSpan TurnQueueTimeout = TimeSpan.FromSeconds(45);
+
+    /// <summary>
+    /// One turn at a time per student (other students run in parallel). Everything a turn reads and writes —
+    /// session, mentor state, homework, messages — is scoped to <paramref name="userId"/>, so data never mixes.
+    /// </summary>
     public async IAsyncEnumerable<TurnEvent> RunAsync(Guid userId, Guid? sessionId, string? timeZone,
+        byte[]? wav, string? typed, TurnOptions? options, [EnumeratorCancellation] CancellationToken ct)
+    {
+        IDisposable? turn;
+        try { turn = await gate.EnterAsync(userId, TurnQueueTimeout, ct); }
+        catch (OperationCanceledException) { yield break; }                 // the student cancelled while waiting
+        if (turn is null)
+        {
+            yield return TurnEvent.Error("Oldingi savolingizga javob hali tayyorlanmoqda — biroz kuting.");
+            yield break;
+        }
+        using (turn)
+        {
+            await foreach (var e in RunCoreAsync(userId, sessionId, timeZone, wav, typed, options, ct).WithCancellation(ct))
+                yield return e;
+        }
+    }
+
+    private async IAsyncEnumerable<TurnEvent> RunCoreAsync(Guid userId, Guid? sessionId, string? timeZone,
         byte[]? wav, string? typed, TurnOptions? options, [EnumeratorCancellation] CancellationToken ct)
     {
         var opt = options ?? new TurnOptions();

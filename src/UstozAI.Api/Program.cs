@@ -128,6 +128,7 @@ if (imageOpts.Enabled)
     builder.Services.AddHttpClient<IImageGenerator, OpenAiImageGenerator>(c => c.Timeout = TimeSpan.FromSeconds(150));
 else builder.Services.AddSingleton<IImageGenerator, ClientFilterImageGenerator>();
 
+builder.Services.AddSingleton<UserTurnGate>();
 builder.Services.AddSingleton<ConversationPipeline>();
 
 var app = builder.Build();
