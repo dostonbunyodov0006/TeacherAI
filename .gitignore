@@ -24,3 +24,6 @@ tools/e2e/
 # all passwords/keys + database backups вЂ” this computer only
 PAROLLAR.md
 backup/
+
+# this chat with Claude (contains pasted keys) — this computer only
+chat/
