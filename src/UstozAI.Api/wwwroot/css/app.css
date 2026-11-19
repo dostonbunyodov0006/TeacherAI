@@ -580,3 +580,6 @@ dialog.mic-test::backdrop { background: #04070dcc; backdrop-filter: blur(3px); }
   background: linear-gradient(135deg, #3a5590, #1c2b4f); display: grid; place-items: center; }
 .creator-photo span { font: 700 40px/1 inherit; color: #e8eefc; letter-spacing: 2px; }
 .creator-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* honeypot: off-screen for people (and screen readers), still "fillable" for naive bots */
+.hp { position: absolute !important; left: -10000px !important; top: auto; width: 1px; height: 1px; overflow: hidden; }

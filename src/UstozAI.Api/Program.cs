@@ -1,4 +1,6 @@
+using System.Net;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Anthropic;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -73,9 +75,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// Behind nginx on the same server: take the real client IP from X-Forwarded-For — but ONLY when the request comes
+// from a known local proxy (loopback by default). A client on the internet can't spoof its IP with that header.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = 429;
+    // Sign-ups: 3 per hour per IP (soxta akkauntlarga qarshi). Local development on this machine is not limited.
+    var devLoopbackExempt = builder.Environment.IsDevelopment();
+    o.AddPolicy("register", http =>
+    {
+        var ip = http.Connection.RemoteIpAddress;
+        if (devLoopbackExempt && ip is not null && IPAddress.IsLoopback(ip)) return RateLimitPartition.GetNoLimiter("dev-local");
+        return RateLimitPartition.GetFixedWindowLimiter(ip?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 3, Window = TimeSpan.FromHours(1) });
+    });
     o.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
@@ -132,6 +148,7 @@ builder.Services.AddSingleton<UserTurnGate>();
 builder.Services.AddSingleton<ConversationPipeline>();
 
 var app = builder.Build();
+app.UseForwardedHeaders();                        // first: everything after sees the real client IP
 
 if (!app.Environment.IsDevelopment())
 {

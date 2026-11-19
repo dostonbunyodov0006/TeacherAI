@@ -86,7 +86,7 @@ $('register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   $('register-error').textContent = '';
-  try { enterApp(await auth.register(f.get('name'), f.get('username'), f.get('password'))); }
+  try { enterApp(await auth.register(f.get('name'), f.get('username'), f.get('password'), f.get('website') || '')); }
   catch (err) { $('register-error').textContent = err.message; }
 });
 $('to-register').onclick = (e) => { e.preventDefault(); $('login-form').hidden = true; $('register-form').hidden = false; $('register-form').querySelector('[name=name]').focus(); };

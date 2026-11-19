@@ -5,7 +5,8 @@ using UstozAI.Api.Data;
 namespace UstozAI.Api.Auth;
 
 public record LoginRequest(string Username, string Password);
-public record RegisterRequest(string? Name, string? Username, string? Password);
+/// <param name="Website">Honeypot: hidden from people, bots fill it in. Must stay empty.</param>
+public record RegisterRequest(string? Name, string? Username, string? Password, string? Website = null);
 public record ProfileRequest(string? Gender);
 public record AuthResponse(string AccessToken, DateTimeOffset ExpiresAt, UserDto User);
 public record UserDto(Guid Id, string Username, string DisplayName, string Language, string Voice,
@@ -55,6 +56,8 @@ public static class AuthEndpoints
         g.MapPost("/register", async (RegisterRequest req, AppDbContext db, IPasswordHasher<User> hasher,
                                       TokenService tokens, HttpContext http) =>
         {
+            // A bot filled the invisible field → refuse without saying why.
+            if (!string.IsNullOrEmpty(req.Website)) return Results.Problem("Ro'yxatdan o'tib bo'lmadi. Keyinroq urinib ko'ring.", statusCode: 400);
             var name = System.Text.RegularExpressions.Regex.Replace((req.Name ?? "").Trim(), @"\s+", " ");
             var username = (req.Username ?? "").Trim().ToLowerInvariant();
             var password = req.Password ?? "";
@@ -71,7 +74,7 @@ public static class AuthEndpoints
             try { await db.SaveChangesAsync(); }
             catch (DbUpdateException) { return Results.Problem("Bu login band. Boshqasini tanlang.", statusCode: 409); }
             return await IssueAsync(user, db, tokens, http);
-        });
+        }).RequireRateLimiting("register");
 
         g.MapPost("/refresh", async (AppDbContext db, TokenService tokens, HttpContext http) =>
         {

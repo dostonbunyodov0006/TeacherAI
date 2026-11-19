@@ -24,11 +24,12 @@ export async function login(username, password) {
   return accept(await r.json());
 }
 
-export async function register(name, username, password) {
+export async function register(name, username, password, website = '') {
   const r = await fetch('/api/auth/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-    body: JSON.stringify({ name, username, password }),
+    body: JSON.stringify({ name, username, password, website }),          // website = honeypot (empty for people)
   });
+  if (r.status === 429) throw new Error("Bu tarmoqdan juda ko'p ro'yxatdan o'tildi. Bir soatdan keyin urinib ko'ring.");
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Ro\'yxatdan o\'tishda xatolik');
   return accept(await r.json());
 }
